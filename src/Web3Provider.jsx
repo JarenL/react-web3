@@ -97,11 +97,11 @@ class Web3Provider extends React.Component {
    * @return {void}
    */
   requestLogin() {
-    const { web3 } = window;
+    const { ethereum } = window;
     const ethAccounts = this.getAccounts();
 
     if (isEmpty(ethAccounts)) {
-      window.ethereum && ethereum.enable()
+      ethereum && ethereum.enable()
       .then(accounts => this.handleAccounts(accounts))
       .catch((err) => {
         this.setState({
@@ -118,21 +118,19 @@ class Web3Provider extends React.Component {
    * @return {void}
    */
   fetchAccounts() {
-    const { web3 } = window;
+    const { ethereum } = window;
     const ethAccounts = this.getAccounts();
 
     if (isEmpty(ethAccounts)) {
-      web3 && web3.currentProvider && web3.currentProvider.sendAsync({
-        "jsonrpc":"2.0","method":"eth_accounts", "params":[]
-      }, (err, response) => {
-        if (err || response.error) {
-          return this.setState({
+      ethereum && ethereum.enable()
+        .then(accounts => this.handleAccounts(accounts))
+        .catch((err) => {
+          this.setState({
             accountsError: err
           });
-        }
-
-        this.handleAccounts(response.result)
-      })
+        });
+    } else {
+      this.handleAccounts(ethAccounts);
     }
   }
 
@@ -193,25 +191,20 @@ class Web3Provider extends React.Component {
    * @return {void}
    */
   fetchNetwork() {
-    const { web3 } = window;
+    const { ethereum } = window;
 
-    if (web3) {
-      const isV1 = /^1/.test(web3.version);
-      const getNetwork = isV1 ? web3.eth.net.getId : web3.version.getNetwork;
-
-      getNetwork((err, netId) => {
-        if (err) {
+    if (ethereum) {
+      ethereum.request({ method: 'eth_chainId' }).then(networkId => {
+        if (networkId != this.state.networkId) {
           this.setState({
-            networkError: err
-          });
-        } else {
-          if (netId != this.state.networkId) {
-            this.setState({
-              networkError: null,
-              networkId: netId
-            })
-          }
+            networkError: null,
+            networkId: netId
+          })
         }
+      }).catch(error => {
+        this.setState({
+          networkError: err
+        });
       });
     }
 
@@ -223,19 +216,13 @@ class Web3Provider extends React.Component {
    * @return {String}
    */
   getAccounts() {
-    const { web3 } = window;
-
-    try {
-      const { web3 } = window;
-      const isV1 = /^1/.test(web3.version);
-      // throws if no account selected
-      const getV1Wallets = () => range(web3.eth.accounts.wallet.length).map(i => web3.eth.accounts.wallet[i]).map(w => w.address);
-      const accounts = isV1 ? getV1Wallets() : web3.eth.accounts;
-
+    const ethereum = window.ethereum;
+    ethereum.request({ method: 'eth_accounts' }).then(accounts => {
       return accounts;
-    } catch (e) {
+    }).catch(error => {
       return [];
-    }
+    });
+    this.handleAccountsChanged(accounts);
   }
 
   render() {
